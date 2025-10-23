@@ -107,11 +107,11 @@ export async function POST(request: NextRequest) {
           }
         })
 
-        // 9. Build context for the LLM
+        // 9. Build context for the LLM with URLs
         const context = topMatches
           .map((match: any, index: number) => {
             const doc = documentsMap.get(match.document_id)
-            return `[Source ${index + 1} - "${doc?.title || 'Untitled'}" (similarity: ${match.similarity.toFixed(2)})]\n${match.content}`
+            return `[Source ${index + 1} - "${doc?.title || 'Untitled'}"]\nURL: ${doc?.url}\nSimilarity: ${match.similarity.toFixed(2)}\n\n${match.content}`
           })
           .join('\n\n---\n\n')
 
@@ -124,7 +124,8 @@ export async function POST(request: NextRequest) {
 When answering:
 - Use ONLY information from the provided sources below
 - If the sources don't contain enough information, say so honestly
-- When you make any claim, cite your source with the link to the source
+- Cite sources using markdown links
+- You can link directly to source URLs when relevant
 - Be thorough but concise
 - If information seems partially relevant, mention what you found
 
