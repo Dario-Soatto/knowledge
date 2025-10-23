@@ -9,14 +9,18 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@ai-sdk/openai": "^2.0.53",
+    "@ai-sdk/react": "^2.0.76",
     "@mendable/firecrawl-js": "^4.4.1",
     "@supabase/ssr": "^0.7.0",
     "@supabase/supabase-js": "^2.76.1",
+    "ai": "^5.0.76",
     "next": "16.0.0",
     "openai": "^6.6.0",
     "react": "19.2.0",
     "react-dom": "19.2.0",
-    "react-force-graph-2d": "^1.29.0"
+    "react-force-graph-2d": "^1.29.0",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
