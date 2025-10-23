@@ -1,6 +1,9 @@
 'use client'
 
 import { useState } from 'react'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+import { Plus, Loader2, CheckCircle2, XCircle } from 'lucide-react'
 
 export default function UrlInput() {
   const [url, setUrl] = useState('')
@@ -36,52 +39,59 @@ export default function UrlInput() {
       }, 1500)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred')
+      // Clear error after 5 seconds
+      setTimeout(() => setError(null), 5000)
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-md p-6 mb-6">
-      <h2 className="text-xl font-semibold text-black dark:text-white mb-4">
-        Add a URL
-      </h2>
-      
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <input
+    <div className="mb-6">
+      <form onSubmit={handleSubmit} className="flex items-center gap-3">
+        <span className="text-sm font-medium whitespace-nowrap">Add URL</span>
+        
+        <div className="flex-1 relative">
+          <Input
             type="url"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             placeholder="https://example.com/article"
             required
             disabled={loading}
-            className="w-full rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-4 py-2 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
+            className="pr-8"
           />
+          {error && (
+            <XCircle className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-destructive" />
+          )}
+          {success && (
+            <CheckCircle2 className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-green-600" />
+          )}
         </div>
 
-        {error && (
-          <div className="rounded-md bg-red-50 dark:bg-red-900/20 p-3">
-            <p className="text-sm text-red-800 dark:text-red-200">{error}</p>
-          </div>
-        )}
-
-        {success && (
-          <div className="rounded-md bg-green-50 dark:bg-green-900/20 p-3">
-            <p className="text-sm text-green-800 dark:text-green-200">
-              URL added successfully! Refreshing...
-            </p>
-          </div>
-        )}
-
-        <button
-          type="submit"
+        <Button 
+          type="submit" 
           disabled={loading || !url}
-          className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          size="sm"
+          className="gap-1"
         >
-          {loading ? 'Processing...' : 'Add URL'}
-        </button>
+          {loading ? (
+            <>
+              <Loader2 className="h-3 w-3 animate-spin" />
+              <span>Adding...</span>
+            </>
+          ) : (
+            <>
+              <Plus className="h-3 w-3" />
+              <span>Add</span>
+            </>
+          )}
+        </Button>
       </form>
+      
+      {error && (
+        <p className="text-xs text-destructive mt-2">{error}</p>
+      )}
     </div>
   )
 }

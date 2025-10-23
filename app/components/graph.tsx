@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import dynamic from 'next/dynamic'
+import { Eye, EyeOff } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 
 // Dynamically import to avoid SSR issues with canvas
 const ForceGraph2D = dynamic(() => import('react-force-graph-2d'), {
@@ -32,6 +34,7 @@ export default function Graph() {
   const [loading, setLoading] = useState(true)
   const [selectedNode, setSelectedNode] = useState<Node | null>(null)
   const graphRef = useRef<any>(null)
+  const [showLabels, setShowLabels] = useState(false) // Add this
 
   useEffect(() => {
     fetchGraphData()
@@ -84,15 +87,35 @@ export default function Graph() {
   }
 
   return (
-    <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-md overflow-hidden">
+    <div className="bg-card rounded-lg border shadow-sm overflow-hidden h-full flex flex-col">
       {/* Header */}
-      <div className="p-4 border-b border-zinc-200 dark:border-zinc-700">
-        <h2 className="text-xl font-semibold text-black dark:text-white">
-          Knowledge Graph
-        </h2>
-        <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
-          {graphData.nodes.length} documents · {graphData.links.length} connections
-        </p>
+      <div className="p-4 border-b flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-semibold">
+            Knowledge Graph
+          </h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            {graphData.nodes.length} documents · {graphData.links.length} connections
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setShowLabels(!showLabels)}
+          className="gap-2"
+        >
+          {showLabels ? (
+            <>
+              <EyeOff className="h-4 w-4" />
+              <span>Hide Labels</span>
+            </>
+          ) : (
+            <>
+              <Eye className="h-4 w-4" />
+              <span>Show Labels</span>
+            </>
+          )}
+        </Button>
       </div>
 
       {/* Graph */}
@@ -103,22 +126,22 @@ export default function Graph() {
           nodeLabel="name"
           nodeAutoColorBy="id"
           nodeCanvasObject={(node: any, ctx, globalScale) => {
-            // Draw node
-            const label = node.name
-            const fontSize = 12 / globalScale
-            ctx.font = `${fontSize}px Sans-Serif`
-            
             // Node circle
             ctx.beginPath()
             ctx.arc(node.x, node.y, 5, 0, 2 * Math.PI)
             ctx.fillStyle = node === selectedNode ? '#3b82f6' : '#6b7280'
             ctx.fill()
 
-            // Label
-            ctx.textAlign = 'center'
-            ctx.textBaseline = 'middle'
-            ctx.fillStyle = '#000'
-            ctx.fillText(label, node.x, node.y + 10)
+            // Label (only if showLabels is true)
+            if (showLabels) {
+              const label = node.name
+              const fontSize = 12 / globalScale
+              ctx.font = `${fontSize}px Sans-Serif`
+              ctx.textAlign = 'center'
+              ctx.textBaseline = 'middle'
+              ctx.fillStyle = '#000'
+              ctx.fillText(label, node.x, node.y + 10)
+            }
           }}
           linkWidth={(link: any) => link.value * 2} // Thicker = more similar
           linkColor={() => '#d1d5db'}
