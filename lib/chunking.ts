@@ -15,6 +15,19 @@ export function chunkText(
   let chunkIndex = 0
 
   for (const paragraph of paragraphs) {
+
+    if (paragraph.length > chunkSize) {
+      // Split this large paragraph into smaller pieces
+      for (let i = 0; i < paragraph.length; i += chunkSize - overlap) {
+        const piece = paragraph.slice(i, Math.min(i + chunkSize, paragraph.length))
+        if (currentChunk.length > 0) {
+          chunks.push({ content: currentChunk.trim(), index: chunkIndex++ })
+          currentChunk = ''
+        }
+        chunks.push({ content: piece.trim(), index: chunkIndex++ })
+      }
+      continue
+    }
     // If adding this paragraph would exceed chunk size
     if (currentChunk.length + paragraph.length > chunkSize && currentChunk.length > 0) {
       // Save current chunk
