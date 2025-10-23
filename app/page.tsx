@@ -1,65 +1,98 @@
-import Image from "next/image";
+import { redirect } from 'next/navigation'
+import { createClient } from '@/lib/supabase-server'
+import { signOut } from './actions/auth'
+import UrlInput from './components/url-input'
+import Chat from './components/chat'
+import Graph from './components/graph'
 
-export default function Home() {
+export default async function Home() {
+  const supabase = await createClient()
+  
+  // Check if user is authenticated
+  const { data: { user }, error } = await supabase.auth.getUser()
+
+  if (error || !user) {
+    redirect('/login')
+  }
+
+  // Fetch user's documents
+  const { data: documents } = await supabase
+    .from('documents')
+    .select('*')
+    .order('created_at', { ascending: false })
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <div className="min-h-screen bg-zinc-50 dark:bg-black p-8">
+      <div className="max-w-[1600px] mx-auto">
+        {/* Header with user info and sign out */}
+        <div className="flex items-center justify-between mb-8">
+          <h1 className="text-3xl font-bold text-black dark:text-white">
+            Knowledge Base
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-zinc-600 dark:text-zinc-400">
+              {user.email}
+            </span>
+            <form action={signOut}>
+              <button
+                type="submit"
+                className="px-4 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-100"
+              >
+                Sign out
+              </button>
+            </form>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        {/* URL Input */}
+        <UrlInput />
+
+        {/* Three column layout: Documents + Graph + Chat */}
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+          {/* Documents List */}
+          <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-md p-6 h-[600px] overflow-y-auto">
+            <h2 className="text-xl font-semibold text-black dark:text-white mb-4">
+              Saved Content
+            </h2>
+            
+            {!documents || documents.length === 0 ? (
+              <p className="text-zinc-600 dark:text-zinc-400">
+                No documents yet. Add a URL above to get started!
+              </p>
+            ) : (
+              <ul className="space-y-3">
+                {documents.map((doc) => (
+                  <li 
+                    key={doc.id}
+                    className="border border-zinc-200 dark:border-zinc-700 rounded-md p-4 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                  >
+                    <h3 className="font-medium text-black dark:text-white mb-1 text-sm">
+                      {doc.title || 'Untitled'}
+                    </h3>
+                    <a 
+                      href={doc.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-blue-600 dark:text-blue-400 hover:underline break-all"
+                    >
+                      {doc.url}
+                    </a>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-500 mt-2">
+                      {new Date(doc.created_at).toLocaleDateString()}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {/* Graph */}
+          <Graph />
+
+          {/* Chat */}
+          <Chat />
         </div>
-      </main>
+      </div>
     </div>
-  );
+  )
 }
