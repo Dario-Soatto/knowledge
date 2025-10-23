@@ -22,14 +22,14 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Fetch all user's documents with embeddings
-    const { data: documents, error: dbError } = await supabase
+    // Fetch all user's documents
+    const { data: documents, error: docError } = await supabase
       .from('documents')
-      .select('id, title, url, content_embedding')
+      .select('id, title, url')
       .eq('user_id', user.id)
 
-    if (dbError) {
-      console.error('Database error:', dbError)
+    if (docError) {
+      console.error('Database error:', docError)
       return NextResponse.json(
         { error: 'Failed to fetch documents' },
         { status: 500 }
@@ -40,31 +40,62 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ nodes: [], links: [] })
     }
 
+    // Fetch all chunks for these documents
+    const { data: chunks, error: chunksError } = await supabase
+      .from('chunks')
+      .select('document_id, content_embedding')
+      .eq('user_id', user.id)
+
+    if (chunksError) {
+      console.error('Chunks error:', chunksError)
+      return NextResponse.json(
+        { error: 'Failed to fetch chunks' },
+        { status: 500 }
+      )
+    }
+
+    // Group chunks by document and average their embeddings
+    const documentEmbeddings = new Map<string, number[]>()
+
+    for (const chunk of chunks || []) {
+      if (!chunk.content_embedding) continue
+      
+      const embedding = typeof chunk.content_embedding === 'string' 
+        ? JSON.parse(chunk.content_embedding) 
+        : chunk.content_embedding
+
+      if (!documentEmbeddings.has(chunk.document_id)) {
+        documentEmbeddings.set(chunk.document_id, embedding)
+      } else {
+        // Average with existing embeddings
+        const existing = documentEmbeddings.get(chunk.document_id)!
+        const averaged = existing.map((val, i) => (val + embedding[i]) / 2)
+        documentEmbeddings.set(chunk.document_id, averaged)
+      }
+    }
+
     // Create nodes
-    const nodes = documents.map(doc => ({
-      id: doc.id,
-      name: doc.title || 'Untitled',
-      url: doc.url,
-    }))
+    const nodes = documents
+      .filter(doc => documentEmbeddings.has(doc.id))
+      .map(doc => ({
+        id: doc.id,
+        name: doc.title || 'Untitled',
+        url: doc.url,
+      }))
 
-    // Calculate similarities and create links
+    // Calculate similarities between documents using averaged embeddings
     const links: Array<{ source: string; target: string; value: number }> = []
-    const similarityThreshold = 0.6 // Only show connections above this threshold
+    const similarityThreshold = 0.6
 
-    for (let i = 0; i < documents.length; i++) {
-      for (let j = i + 1; j < documents.length; j++) {
-        const docA = documents[i]
-        const docB = documents[j]
+    for (let i = 0; i < nodes.length; i++) {
+      for (let j = i + 1; j < nodes.length; j++) {
+        const docA = nodes[i]
+        const docB = nodes[j]
+        
+        const embeddingA = documentEmbeddings.get(docA.id)
+        const embeddingB = documentEmbeddings.get(docB.id)
 
-        if (docA.content_embedding && docB.content_embedding) {
-          // Convert embeddings to arrays if they're strings
-          const embeddingA = typeof docA.content_embedding === 'string' 
-            ? JSON.parse(docA.content_embedding) 
-            : docA.content_embedding
-          const embeddingB = typeof docB.content_embedding === 'string' 
-            ? JSON.parse(docB.content_embedding) 
-            : docB.content_embedding
-
+        if (embeddingA && embeddingB) {
           const similarity = cosineSimilarity(embeddingA, embeddingB)
 
           if (similarity > similarityThreshold) {

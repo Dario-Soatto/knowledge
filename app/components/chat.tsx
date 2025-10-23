@@ -2,9 +2,16 @@
 
 import { useState, useRef, useEffect } from 'react'
 
+interface Source {
+  title: string
+  url: string
+  similarity: number
+}
+
 interface Message {
   role: 'user' | 'assistant'
   content: string
+  sources?: Source[] // Add sources to messages
 }
 
 export default function Chat() {
@@ -45,8 +52,12 @@ export default function Chat() {
 
       const data = await response.json()
       
-      // Add assistant message
-      setMessages(prev => [...prev, { role: 'assistant', content: data.response }])
+      // Add assistant message WITH sources
+      setMessages(prev => [...prev, { 
+        role: 'assistant', 
+        content: data.response,
+        sources: data.sources // Include sources
+      }])
     } catch (error) {
       setMessages(prev => [
         ...prev,
@@ -83,14 +94,48 @@ export default function Chat() {
               key={index}
               className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
             >
-              <div
-                className={`max-w-[80%] rounded-lg px-4 py-2 ${
-                  message.role === 'user'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100'
-                }`}
-              >
-                <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+              <div className={`max-w-[80%] ${message.role === 'assistant' ? 'space-y-2' : ''}`}>
+                <div
+                  className={`rounded-lg px-4 py-2 ${
+                    message.role === 'user'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100'
+                  }`}
+                >
+                  <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                </div>
+                
+                {/* Sources section for assistant messages */}
+                {message.role === 'assistant' && message.sources && message.sources.length > 0 && (
+                  <div className="bg-zinc-50 dark:bg-zinc-900 rounded-lg px-3 py-2 border border-zinc-200 dark:border-zinc-700">
+                    <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-2">
+                      Sources:
+                    </p>
+                    <div className="space-y-1">
+                      {message.sources.map((source, i) => (
+                        <div key={i} className="flex items-start gap-2">
+                          <span className="text-xs text-zinc-500 dark:text-zinc-500 mt-0.5">
+                            {i + 1}.
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <a
+                              href={source.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-blue-600 dark:text-blue-400 hover:underline block truncate"
+                              title={source.title}
+                            >
+                              {source.title}
+                            </a>
+                            <span className="text-xs text-zinc-500 dark:text-zinc-500">
+                              similarity: {(source.similarity * 100).toFixed(0)}%
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           ))

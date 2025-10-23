@@ -38,43 +38,76 @@ export async function POST(request: NextRequest) {
 
     const queryEmbedding = embeddingResponse.data[0].embedding
 
-    // 4. Search for similar documents using the match_documents function
-    console.log('Searching for relevant documents...')
+    // 4. Search for similar chunks - get top 15, then filter to best 5
+    console.log('Searching for relevant chunks...')
     const { data: matches, error: searchError } = await supabase
-      .rpc('match_documents', {
+      .rpc('match_chunks', {
         query_embedding: queryEmbedding,
-        match_threshold: 0.5, // Minimum similarity score (0-1)
-        match_count: 5, // Number of documents to retrieve
+        match_threshold: 0.0, // No hard threshold - always return something
+        match_count: 15, // Get more results to choose from
         filter_user_id: user.id,
       })
 
     if (searchError) {
       console.error('Search error:', searchError)
       return NextResponse.json(
-        { error: 'Failed to search documents' },
+        { error: 'Failed to search chunks' },
         { status: 500 }
       )
     }
 
-    // 5. Build context from matched documents
-    const context = matches && matches.length > 0
-      ? matches
-          .map((match: any) => `Source: ${match.title}\nURL: ${match.url}\n\n${match.content}`)
-          .join('\n\n---\n\n')
-      : 'No relevant documents found.'
+    if (!matches || matches.length === 0) {
+      console.warn('No chunks found for user')
+      return NextResponse.json({
+        response: "I don't have any documents in your knowledge base yet. Please add some URLs first!",
+        sources: [],
+      })
+    }
 
-    // 6. Generate response with GPT-4
+    // Sort by similarity and take top 5
+    const topMatches = matches
+      .sort((a: any, b: any) => b.similarity - a.similarity)
+      .slice(0, 5)
+
+    console.log('Found matches:', topMatches.length)
+    topMatches.forEach((m: any, i: number) => {
+      console.log(`Match ${i + 1}: similarity=${m.similarity.toFixed(3)}, preview="${m.content.substring(0, 80)}..."`)
+    })
+
+    // 5. Fetch document info for the matched chunks
+    const documentIds = [...new Set(topMatches.map((m: any) => m.document_id))]
+    const { data: documents } = await supabase
+      .from('documents')
+      .select('id, title, url')
+      .in('id', documentIds)
+
+    const documentsMap = new Map(documents?.map(d => [d.id, d]) || [])
+
+    // 6. Build rich context with numbered sources
+    const context = topMatches
+      .map((match: any, index: number) => {
+        const doc = documentsMap.get(match.document_id)
+        return `[Source ${index + 1} - "${doc?.title || 'Untitled'}" (similarity: ${match.similarity.toFixed(2)})]\n${match.content}`
+      })
+      .join('\n\n---\n\n')
+
+    // 7. Generate response with improved prompt
     console.log('Generating response...')
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini', // Fast and cost-effective
+      model: 'gpt-4o-mini',
       messages: [
         {
           role: 'system',
-          content: `You are a helpful assistant that answers questions based on the user's saved knowledge base. 
-          
-Use the following context to answer the question. If the context doesn't contain relevant information, say so honestly.
+          content: `You are a helpful assistant that answers questions based on the user's saved knowledge base.
 
-Context:
+When answering:
+- Use ONLY information from the provided sources below
+- If the sources don't contain enough information, say so honestly
+- Cite sources when making claims
+- Be thorough but concise
+- If information seems partially relevant, mention what you found
+
+Sources:
 ${context}`,
         },
         {
@@ -83,14 +116,30 @@ ${context}`,
         },
       ],
       temperature: 0.7,
-      max_tokens: 500,
+      max_tokens: 800, // Increased for more thorough answers
     })
 
     const response = completion.choices[0].message.content
 
+    // 8. Return response with similarity scores
+    const sources = topMatches.map((m: any) => {
+      const doc = documentsMap.get(m.document_id)
+      return { 
+        title: doc?.title || 'Untitled',
+        url: doc?.url,
+        similarity: parseFloat(m.similarity.toFixed(3)),
+      }
+    })
+    // Deduplicate by URL
+    .filter((s: any, i: number, arr: any[]) => 
+      arr.findIndex(a => a.url === s.url) === i
+    )
+
     return NextResponse.json({ 
       response,
-      sources: matches?.map((m: any) => ({ title: m.title, url: m.url })) || []
+      sources,
+      matchCount: topMatches.length,
+      averageSimilarity: (topMatches.reduce((sum: number, m: any) => sum + m.similarity, 0) / topMatches.length).toFixed(3)
     })
   } catch (error) {
     console.error('Chat error:', error)

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
 import OpenAI from 'openai'
 import FirecrawlApp from '@mendable/firecrawl-js'
+import { chunkText } from '@/lib/chunking'
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY!,
@@ -53,39 +54,78 @@ export async function POST(request: NextRequest) {
     const content = scrapeResult.markdown
     const title = scrapeResult.metadata?.title || new URL(url).hostname
 
-    // 4. Generate embedding with OpenAI
-    console.log('Generating embedding...')
-    const embeddingResponse = await openai.embeddings.create({
-      model: 'text-embedding-3-small',
-      input: content,
-    })
+    console.log(`Content length: ${content.length} chars`)
 
-    const embedding = embeddingResponse.data[0].embedding
-
-    // 5. Store in Supabase
-    console.log('Storing in database...')
-    const { data, error: dbError } = await supabase
+    // 4. Create the document record first
+    const { data: document, error: docError } = await supabase
       .from('documents')
       .insert({
         user_id: user.id,
         url,
         title,
         content,
-        content_embedding: embedding,
+        content_embedding: null, // We'll store embeddings in chunks
         metadata: scrapeResult.metadata || {},
       })
       .select()
       .single()
 
-    if (dbError) {
-      console.error('Database error:', dbError)
+    if (docError) {
+      console.error('Database error:', docError)
       return NextResponse.json(
         { error: 'Failed to save document' },
         { status: 500 }
       )
     }
 
-    return NextResponse.json({ success: true, document: data })
+    // 5. Chunk the content
+    const chunks = chunkText(content) // Uses default 20000
+    console.log(`Created ${chunks.length} chunks`)
+
+    // 6. Generate embeddings and store chunks
+    const chunkRecords = []
+    
+    for (const chunk of chunks) {
+      // Generate embedding for this chunk
+      const embeddingResponse = await openai.embeddings.create({
+        model: 'text-embedding-3-small',
+        input: chunk.content,
+      })
+
+      const embedding = embeddingResponse.data[0].embedding
+
+      chunkRecords.push({
+        document_id: document.id,
+        user_id: user.id,
+        content: chunk.content,
+        content_embedding: embedding,
+        chunk_index: chunk.index,
+        metadata: {},
+      })
+    }
+
+    // 7. Bulk insert all chunks
+    const { error: chunksError } = await supabase
+      .from('chunks')
+      .insert(chunkRecords)
+
+    if (chunksError) {
+      console.error('Chunks insert error:', chunksError)
+      // Clean up document if chunks failed
+      await supabase.from('documents').delete().eq('id', document.id)
+      return NextResponse.json(
+        { error: 'Failed to save chunks' },
+        { status: 500 }
+      )
+    }
+
+    console.log(`Successfully stored ${chunks.length} chunks`)
+
+    return NextResponse.json({ 
+      success: true, 
+      document,
+      chunksCreated: chunks.length
+    })
   } catch (error) {
     console.error('Ingestion error:', error)
     return NextResponse.json(
