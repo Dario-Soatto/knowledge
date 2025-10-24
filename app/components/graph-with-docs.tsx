@@ -5,6 +5,7 @@ import Graph from './graph'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Button } from '@/components/ui/button'
 import { ChevronDown, ChevronUp } from 'lucide-react'
+import DeleteDocumentButton from './delete-document-button'
 
 interface Document {
   id: string
@@ -61,24 +62,32 @@ export default function GraphWithDocs({ documents }: GraphWithDocsProps) {
                 <ul className="space-y-2">
                   {documents.map((doc) => (
                     <li 
-                      key={doc.id}
-                      className="border rounded-md p-3 hover:bg-muted/50 transition-colors"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <a 
-                          href={doc.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-sm font-medium text-primary hover:underline truncate flex-1"
-                          title={doc.title || 'Untitled'}
-                        >
-                          {doc.title || 'Untitled'}
-                        </a>
+                    key={doc.id}
+                    className="border rounded-md p-3 hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <a 
+                        href={doc.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm font-medium text-primary hover:underline truncate flex-1"
+                        title={doc.title || 'Untitled'}
+                      >
+                        {doc.title || 'Untitled'}
+                      </a>
+                      <div className="flex items-center gap-2">
                         <span className="text-xs text-muted-foreground whitespace-nowrap">
                           {new Date(doc.created_at).toLocaleDateString()}
                         </span>
+                        <DeleteDocumentButton
+                          documentId={doc.id}
+                          documentTitle={doc.title || 'Untitled'}
+                          size="icon"
+                          variant="ghost"
+                        />
                       </div>
-                    </li>
+                    </div>
+                  </li>
                   ))}
                 </ul>
               )}

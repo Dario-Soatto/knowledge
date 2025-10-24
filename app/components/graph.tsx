@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { Eye, EyeOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import DeleteDocumentButton from './delete-document-button'
 
 // Dynamically import to avoid SSR issues with canvas
 const ForceGraph2D = dynamic(() => import('react-force-graph-2d'), {
@@ -155,23 +156,31 @@ export default function Graph() {
         {/* Selected node info */}
         {selectedNode && (
           <div className="absolute top-4 right-4 bg-white dark:bg-zinc-800 rounded-lg shadow-lg p-4 max-w-xs border border-zinc-200 dark:border-zinc-700">
-            <button
-              onClick={() => setSelectedNode(null)}
-              className="absolute top-2 right-2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
-            >
-              ✕
-            </button>
-            <h3 className="font-semibold text-black dark:text-white mb-2 pr-6">
-              {selectedNode.name}
-            </h3>
+            <div className="flex items-start justify-between gap-2 mb-3">
+              <h3 className="font-semibold text-black dark:text-white pr-6">
+                {selectedNode.name}
+              </h3>
+              <button
+                onClick={() => setSelectedNode(null)}
+                className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
+              >
+                ✕
+              </button>
+            </div>
             <a
               href={selectedNode.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-sm text-blue-600 dark:text-blue-400 hover:underline break-all"
+              className="text-sm text-blue-600 dark:text-blue-400 hover:underline break-all block mb-3"
             >
               {selectedNode.url}
             </a>
+            <DeleteDocumentButton
+              documentId={selectedNode.id}
+              documentTitle={selectedNode.name}
+              variant="ghost"
+              size="icon"
+            />
           </div>
         )}
       </div>
