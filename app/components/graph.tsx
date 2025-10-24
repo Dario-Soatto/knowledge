@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic'
 import { Eye, EyeOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import DeleteDocumentButton from './delete-document-button'
+import { Slider } from '@/components/ui/slider'
 
 // Dynamically import to avoid SSR issues with canvas
 const ForceGraph2D = dynamic(() => import('react-force-graph-2d'), {
@@ -36,14 +37,16 @@ export default function Graph() {
   const [selectedNode, setSelectedNode] = useState<Node | null>(null)
   const graphRef = useRef<any>(null)
   const [showLabels, setShowLabels] = useState(false) // Add this
+  const [similarityLevel, setSimilarityLevel] = useState(8) // 1-10 scale, 5 is default
 
   useEffect(() => {
     fetchGraphData()
-  }, [])
+  }, [similarityLevel])
 
   async function fetchGraphData() {
     try {
-      const response = await fetch('/api/graph-data')
+      const threshold = (21 - similarityLevel) / 20
+      const response = await fetch(`/api/graph-data?threshold=${threshold}`)
       const data = await response.json()
       console.log('Graph data received:', data) // Add this line
       setGraphData(data)
@@ -90,33 +93,55 @@ export default function Graph() {
   return (
     <div className="bg-card rounded-lg border shadow-sm overflow-hidden h-full flex flex-col">
       {/* Header */}
-      <div className="p-4 border-b flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-semibold">
-            Knowledge Graph
-          </h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            {graphData.nodes.length} documents · {graphData.links.length} connections
-          </p>
+      <div className="p-4 border-b">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h2 className="text-xl font-semibold">Knowledge Graph</h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              {graphData.nodes.length} documents · {graphData.links.length} connections
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowLabels(!showLabels)}
+            className="gap-2"
+          >
+            {showLabels ? (
+              <>
+                <EyeOff className="h-4 w-4" />
+                <span>Hide Labels</span>
+              </>
+            ) : (
+              <>
+                <Eye className="h-4 w-4" />
+                <span>Show Labels</span>
+              </>
+            )}
+          </Button>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setShowLabels(!showLabels)}
-          className="gap-2"
-        >
-          {showLabels ? (
-            <>
-              <EyeOff className="h-4 w-4" />
-              <span>Hide Labels</span>
-            </>
-          ) : (
-            <>
-              <Eye className="h-4 w-4" />
-              <span>Show Labels</span>
-            </>
-          )}
-        </Button>
+        
+        {/* Similarity Threshold Slider */}
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-muted-foreground whitespace-nowrap">
+            Connections:
+          </span>
+          <div className="flex-1 flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Few</span>
+            <Slider
+              value={[similarityLevel]}
+              onValueChange={(value) => setSimilarityLevel(value[0])}
+              min={1}
+              max={20}
+              step={1}
+              className="flex-1"
+            />
+            <span className="text-xs text-muted-foreground">Many</span>
+          </div>
+          <span className="text-xs font-mono text-muted-foreground min-w-[3ch]">
+            {similarityLevel}
+          </span>
+        </div>
       </div>
 
       {/* Graph */}

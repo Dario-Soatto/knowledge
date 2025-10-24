@@ -12,6 +12,8 @@ function cosineSimilarity(a: number[], b: number[]): number {
 export async function GET(request: NextRequest) {
   try {
     // Check authentication
+    const { searchParams } = new URL(request.url)
+    const similarityThreshold = parseFloat(searchParams.get('threshold') || '0.6')
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
@@ -85,7 +87,6 @@ export async function GET(request: NextRequest) {
 
     // Calculate similarities between documents using averaged embeddings
     const links: Array<{ source: string; target: string; value: number }> = []
-    const similarityThreshold = 0.6
 
     for (let i = 0; i < nodes.length; i++) {
       for (let j = i + 1; j < nodes.length; j++) {
